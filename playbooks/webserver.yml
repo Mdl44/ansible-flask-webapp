@@ -1,0 +1,40 @@
+- name: Instalare și configurare Nginx
+  hosts: all
+  become: true
+  tasks:
+    - name: Instalează Nginx
+      package:
+        name: nginx
+        state: present
+
+    - name: Pornește și activează serviciul Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Creează directorul /usr/share/nginx/html dacă nu există
+      file:
+        path: /usr/share/nginx/html
+        state: directory
+        mode: '0755'
+
+    - name: Copiază pagina index personalizată
+      copy:
+        dest: /usr/share/nginx/html/index.html
+        content: |
+          <html>
+            <head><title>Pagina mea</title></head>
+            <body>
+              <h1>Salut! Aceasta este pagina mea Ansible.</h1>
+            </body>
+          </html>
+        mode: '0644'
+      notify: Restart nginx
+
+  handlers:
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
+

@@ -1,0 +1,10 @@
+name: TensorFlow
+id: tensorflow
+type: conda
+description: TensorFlow machine learning framework
+environment: tfperf
+workdir: /mnt/nfsshare/fisiere-test/python-fisiere
+command: python {input_file}
+input:
+  extensions: [.py]
+  redirect: false

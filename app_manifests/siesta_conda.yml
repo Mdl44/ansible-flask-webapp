@@ -1,0 +1,13 @@
+name: SIESTA (Conda)
+id: siesta_conda
+type: conda
+description: SIESTA(conda environment)
+environment: siestaenv
+workdir: /mnt/nfsshare/fisiere-test/siesta-fisiere
+command: siesta {redirect_input} {redirect_output}
+input:
+  extensions: [.fdf]
+  redirect: true
+output:
+  extension: .out
+  redirect: true

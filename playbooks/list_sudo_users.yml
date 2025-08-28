@@ -1,0 +1,11 @@
+- name: Show users with sudo access
+  hosts: all
+  become: true
+  tasks:
+    - name: Get sudo group members
+      command: getent group wheel
+      register: wheel_group
+
+    - name: Display sudo users
+      debug:
+        msg: "Sudo users: {{ wheel_group.stdout.split(':')[-1].split(',') | map('trim') }}"

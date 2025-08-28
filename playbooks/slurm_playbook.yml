@@ -1,0 +1,11 @@
+- name: Install and configure Slurm
+  hosts: all
+  become: true
+  vars:
+    slurm_user: slurm
+  roles:
+    - common
+    - slurm
+
+
+

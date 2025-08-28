@@ -1,0 +1,11 @@
+- name: List recently modified files in /etc
+  hosts: all
+  become: true
+  tasks:
+    - name: Find recent /etc changes
+      command: find /etc -type f -mtime -1
+      register: etc_recent
+
+    - name: Show modified files
+      debug:
+        var: etc_recent.stdout_lines

@@ -1,0 +1,5 @@
+- name: Check disk usage
+  hosts: all
+  tasks:
+    - name: Run df command
+      ansible.builtin.command: df -h

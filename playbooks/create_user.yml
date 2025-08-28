@@ -1,0 +1,65 @@
+---
+- name: Create user on all nodes
+  hosts: all
+  become: true
+  vars:
+    username: "{{ username }}"
+    uid: "{{ uid }}"
+    gid: "{{ gid }}"
+  tasks:
+    - name: Ensure group exists
+      group:
+        name: "{{ username }}"
+        gid: "{{ gid }}"
+        state: present
+
+    - name: Ensure clusterusers group exists
+      group:
+        name: "clusterusers"
+        state: present
+
+    - name: Ensure user exists
+      user:
+        name: "{{ username }}"
+        uid: "{{ uid }}"
+        group: "{{ username }}"
+        groups: "clusterusers"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Create .ssh directory
+      file:
+        path: "/home/{{ username }}/.ssh"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: '0700'
+
+    - name: Copy authorized_keys
+      copy:
+        src: "/tmp/{{ username }}.pub"
+        dest: "/home/{{ username }}/.ssh/authorized_keys"
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: '0600'
+
+    - name: Create jobs directory for user
+      file:
+        path: "/home/{{ username }}/slurm_jobs"
+        state: directory
+        owner: "{{ username }}"
+        group: "clusterusers"
+        mode: '0770'
+
+    - name: Add user to SLURM user_table (MariaDB)
+      community.mysql.mysql_query:
+        login_host: "localhost"
+        login_user: "slurm"
+        login_password: "slurm_password"
+        login_db: "slurm_acct_db"
+        query: >
+          INSERT IGNORE INTO user_table (creation_time, mod_time, deleted, name, admin_level, uid)
+          VALUES (UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, '{{ username }}', 1, {{ uid }});
+      when: username is defined
+      delegate_to: localhost

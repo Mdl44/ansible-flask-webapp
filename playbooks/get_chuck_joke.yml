@@ -1,0 +1,6 @@
+- name: Get and save Chuck Norris joke
+  hosts: all
+  become: true
+  tasks:
+    - name: Fetch Chuck Norris joke and save to /root/chuck_joke.txt
+      shell: curl -s https://api.chucknorris.io/jokes/random | jq -r .value > /root/chuck_joke.txt

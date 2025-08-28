@@ -1,0 +1,8 @@
+- name: Install Development Tools
+  hosts: myhosts
+  become: true
+  tasks:
+    - name: Install Development Tools group
+      ansible.builtin.yum:
+        name: "@Development tools"
+        state: present

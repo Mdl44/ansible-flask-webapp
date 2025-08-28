@@ -1,0 +1,61 @@
+---
+- name: Rename user and home directory on all nodes
+  hosts: all
+  become: true
+  vars:
+    old_username: "{{ old_username }}"
+    new_username: "{{ new_username }}"
+  tasks:
+    - name: Ensure clusterusers group exists
+      group:
+        name: "clusterusers"
+        state: present
+
+    - name: Ensure new group exists
+      group:
+        name: "{{ new_username }}"
+        state: present
+      when: old_username != new_username
+
+    - name: Rename user
+      user:
+        name: "{{ new_username }}"
+        move_home: yes
+        home: "/home/{{ new_username }}"
+        state: present
+        shell: /bin/bash
+        group: "{{ new_username }}"
+        groups: "clusterusers"
+        append: yes
+      when: old_username != new_username
+
+    - name: Remove old user if exists
+      user:
+        name: "{{ old_username }}"
+        state: absent
+      when: old_username != new_username
+
+    - name: Remove old group if exists
+      group:
+        name: "{{ old_username }}"
+        state: absent
+      when: old_username != new_username
+    
+    - name: Rename jobs directory if exists
+      command: mv /home/{{ old_username }}/slurm_jobs /home/{{ new_username }}/slurm_jobs
+      args:
+        removes: "/home/{{ old_username }}/slurm_jobs"
+        creates: "/home/{{ new_username }}/slurm_jobs"
+      ignore_errors: yes
+      when: old_username != new_username
+    
+    - name: Rename user in SLURM user_table (MariaDB)
+      community.mysql.mysql_query:
+        login_host: "localhost"
+        login_user: "slurm"
+        login_password: "slurm_password"
+        login_db: "slurm_acct_db"
+        query: >
+          UPDATE user_table SET name='{{ new_username }}' WHERE name='{{ old_username }}';
+      when: old_username != new_username
+      delegate_to: localhost

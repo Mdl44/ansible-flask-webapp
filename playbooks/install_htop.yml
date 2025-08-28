@@ -1,0 +1,8 @@
+- name: Install htop using dnf
+  hosts: all
+  become: true
+  tasks:
+    - name: Install htop
+      dnf:
+        name: htop
+        state: present

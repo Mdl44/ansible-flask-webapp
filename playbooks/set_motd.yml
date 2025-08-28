@@ -1,0 +1,22 @@
+---
+- name: Set static Message of the Day
+  hosts: all
+  become: yes
+
+  vars:
+    custom_motd: |
+      *************************************
+      *       Welcome to the Server       *
+      *  Hostname: {{ inventory_hostname }}      *
+      *  Access restricted to authorized  *
+      *  personnel only.                  *
+      *************************************
+
+  tasks:
+    - name: Set /etc/motd with custom message
+      copy:
+        content: "{{ custom_motd }}"
+        dest: /etc/motd
+        owner: root
+        group: root
+        mode: '0644'

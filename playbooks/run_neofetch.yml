@@ -1,0 +1,11 @@
+- name: Run neofetch and display system summary
+  hosts: all
+  become: true
+  tasks:
+    - name: Run neofetch
+      command: neofetch --stdout
+      register: neofetch_output
+
+    - name: Show neofetch output
+      debug:
+        var: neofetch_output.stdout_lines

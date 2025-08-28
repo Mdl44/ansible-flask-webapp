@@ -1,0 +1,8 @@
+- name: Remove htop
+  hosts: all
+  become: true
+  tasks:
+    - name: Uninstall htop
+      dnf:
+        name: htop
+        state: absent

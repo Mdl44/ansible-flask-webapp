@@ -1,0 +1,91 @@
+- name: Self-Repair Playbook
+  hosts: all
+  become: true
+
+  vars:
+    min_disk_space_mb: 500
+    monitored_services:
+      - nginx
+      - sshd
+    critical_files:
+      - /etc/nginx/nginx.conf
+      - /etc/ssh/sshd_config
+    config_restore_path: "/tmp/restore-configs"
+
+  tasks:
+
+    - name: Check disk space
+      shell: "df -Pm / | tail -1 | awk '{print $4}'"
+      register: disk_check
+
+    - name: Warn or fail if low disk space
+      debug:
+        msg: "Low disk space: {{ disk_check.stdout }} MB"
+      when: disk_check.stdout | int < min_disk_space_mb
+
+    - name: Clean apt cache (Debian only)
+      apt:
+        autoclean: yes
+        autoremove: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Restart monitored services
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+        enabled: true
+      loop: "{{ monitored_services }}"
+      register: service_restart
+
+    - name: Show which services were restarted
+      debug:
+        msg: "Service {{ item.item }} was restarted"
+      loop: "{{ service_restart.results }}"
+      when: item.changed
+
+    - name: Detect php-fpm services on this host
+      shell: |
+        systemctl list-units --type=service --no-legend | awk '{print $1}' | grep -E '^php.*fpm\.service$' || true
+      register: php_fpm_detected
+      changed_when: false
+
+    - name: Set list of actual php-fpm services
+      set_fact:
+        host_php_fpm_services: "{{ php_fpm_detected.stdout_lines | default([]) }}"
+
+    - name: Restart detected php-fpm services
+      service:
+        name: "{{ item | regex_replace('\\.service$', '') }}"
+        state: restarted
+      loop: "{{ host_php_fpm_services }}"
+      when: host_php_fpm_services | length > 0
+      ignore_errors: true
+
+    - name: Log absence of php-fpm services
+      debug:
+        msg: "No php-fpm services found on this host."
+      when: host_php_fpm_services | length == 0
+
+    - name: Check if critical config files exist
+      stat:
+        path: "{{ item }}"
+      register: file_status
+      loop: "{{ critical_files }}"
+
+    - name: Restore missing config files from local backup
+      copy:
+        src: "{{ config_restore_path }}/{{ item.item | basename }}"
+        dest: "{{ item.item }}"
+        remote_src: no
+      delegate_to: localhost
+      run_once: true
+      loop: "{{ file_status.results }}"
+      when: not item.stat.exists
+
+    - name: Reload services after config restore
+      systemd:
+        name: "{{ item }}"
+        state: reloaded
+      loop: "{{ monitored_services + (host_php_fpm_services | map('regex_replace', '\\.service$', '') | list) }}"
+      ignore_errors: true
+

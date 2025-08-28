@@ -1,0 +1,11 @@
+- name: Check disk space usage
+  hosts: all
+  become: true
+  tasks:
+    - name: Run df
+      command: df -h
+      register: disk_output
+
+    - name: Print disk usage
+      debug:
+        var: disk_output.stdout_lines

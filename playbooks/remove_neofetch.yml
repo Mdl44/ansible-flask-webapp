@@ -1,0 +1,8 @@
+- name: Remove neofetch using dnf
+  hosts: all
+  become: true
+  tasks:
+    - name: Uninstall neofetch
+      dnf:
+        name: neofetch
+        state: absent

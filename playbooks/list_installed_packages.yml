@@ -1,0 +1,11 @@
+- name: List all installed packages
+  hosts: all
+  become: true
+  tasks:
+    - name: Get installed package list
+      command: rpm -qa
+      register: packages
+
+    - name: Show list
+      debug:
+        msg: "{{ packages.stdout_lines }}"

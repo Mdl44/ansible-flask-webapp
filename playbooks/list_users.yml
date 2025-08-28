@@ -1,0 +1,10 @@
+- name: List active (logged in) users
+  hosts: all
+  tasks:
+    - name: Get currently logged in users
+      command: who
+      register: users
+
+    - name: Print users
+      debug:
+        var: users.stdout_lines

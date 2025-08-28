@@ -1,0 +1,55 @@
+---
+- name: Backup Slurm configuration and binaries
+  hosts: all
+  become: true
+  vars:
+    backup_dir: "/root/slurm_backup"
+    timestamp: "{{ lookup('pipe', 'date +%F_%H-%M') }}"
+    archive_file: "slurm_backup_{{ timestamp }}.tar.gz"
+
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0700'
+
+    - name: Backup /etc/slurm
+      synchronize:
+        src: /etc/slurm/
+        dest: "{{ backup_dir }}/etc-slurm/"
+        recursive: yes
+
+    - name: Backup Slurm log files if they exist
+      synchronize:
+        src: /var/log/slurm/
+        dest: "{{ backup_dir }}/var-log-slurm/"
+        recursive: yes
+      ignore_errors: yes
+
+    - name: Backup Slurm systemd unit files
+      shell: |
+        mkdir -p {{ backup_dir }}/systemd-units
+        cp /usr/lib/systemd/system/slurm* {{ backup_dir }}/systemd-units/
+      args:
+        executable: /bin/bash
+
+    - name: Backup Slurm binaries
+      shell: |
+        mkdir -p {{ backup_dir }}/binaries
+        cp $(which slurmctld) $(which slurmd) {{ backup_dir }}/binaries/
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Create tar.gz archive
+      archive:
+        path: "{{ backup_dir }}"
+        dest: "{{ backup_dir }}/{{ archive_file }}"
+        format: gz
+        remove: no
+
+    - name: Show archive location
+      debug:
+        msg: "Backup archive created at {{ backup_dir }}/{{ archive_file }}"
+

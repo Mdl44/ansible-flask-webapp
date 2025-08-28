@@ -1,0 +1,38 @@
+---
+- name: Create files and directories on target hosts
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Create directory /opt/myapp/logs
+      file:
+        path: /opt/myapp/logs
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+        recurse: yes
+
+    - name: Create a file with specific content
+      copy:
+        dest: /opt/myapp/config.txt
+        content: |
+          # Configuration File
+          setting1=value1
+          setting2=value2
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create an empty file
+      file:
+        path: /opt/myapp/empty_file.txt
+        state: touch
+        mode: '0644'
+
+    - name: Create a nested directory structure
+      file:
+        path: /opt/myapp/data/archive/2025
+        state: directory
+        mode: '0755'
+        recurse: yes

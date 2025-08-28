@@ -1,0 +1,30 @@
+---
+- name: Perform basic security audit with Lynis
+  hosts: all
+  become: yes
+
+  vars:
+    lynis_dir: /opt/lynis
+
+  tasks:
+    - name: Ensure git is installed
+      ansible.builtin.package:
+        name: git
+        state: present
+
+    - name: Clone Lynis repository if not already present
+      ansible.builtin.git:
+        repo: https://github.com/CISOfy/lynis
+        dest: "{{ lynis_dir }}"
+        version: master
+
+    - name: Run Lynis security audit
+      ansible.builtin.command: ./lynis audit system
+      args:
+        chdir: "{{ lynis_dir }}"
+      register: lynis_output
+
+    - name: Show scan summary (last 20 lines)
+      ansible.builtin.debug:
+        msg: "{{ lynis_output.stdout_lines[-20:] }}"
+

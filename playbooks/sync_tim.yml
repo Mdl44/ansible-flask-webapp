@@ -1,0 +1,34 @@
+---
+- name: Sync Timezone and NTP on all servers
+  hosts: all
+  become: yes
+
+  vars:
+    timezone: Europe/Bucharest  # Change to your preferred timezone
+    ntp_package: chrony
+    ntp_service: chronyd         # Use 'chrony' on Debian/Ubuntu
+
+  tasks:
+
+    - name: Set the correct timezone
+      ansible.builtin.command: timedatectl set-timezone {{ timezone }}
+      when: ansible_facts['os_family'] in ['RedHat', 'Debian']
+
+    - name: Ensure NTP package is installed
+      ansible.builtin.package:
+        name: "{{ ntp_package }}"
+        state: present
+
+    - name: Ensure NTP service is enabled and started
+      ansible.builtin.service:
+        name: "{{ ntp_service }}"
+        state: started
+        enabled: yes
+
+    - name: Verify time sync status
+      ansible.builtin.shell: timedatectl | grep "System clock synchronized"
+      register: sync_status
+
+    - name: Show sync result
+      ansible.builtin.debug:
+        msg: "{{ sync_status.stdout }}"

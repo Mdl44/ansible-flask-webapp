@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --job-name=siesta_benzene
+#SBATCH --output=siesta_benzene.out
+#SBATCH --error=siesta_benzene.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=02:00:00
+
+cd /root/nfsshare/fisiere-test/siesta-fisiere/Benzene
+srun /root/nfsshare/siesta/bin/siesta < benzene.relax.fdf > benzene.relax.out

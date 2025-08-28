@@ -1,0 +1,38 @@
+---
+- name: Delete user and home directory on all nodes
+  hosts: all
+  become: true
+  vars:
+    username: "{{ username }}"
+  tasks:
+    - name: Remove user and home
+      user:
+        name: "{{ username }}"
+        state: absent
+        remove: yes
+
+    - name: Remove group
+      group:
+        name: "{{ username }}"
+        state: absent
+    
+    - name: Remove jobs directory (if still exists)
+      file:
+        path: "/home/{{ username }}/slurm_jobs"
+        state: absent
+
+    - name: Remove home directory (if still exists)
+      file:
+        path: "/home/{{ username }}"
+        state: absent
+    
+    - name: Remove user from SLURM user_table (MariaDB)
+      community.mysql.mysql_query:
+        login_host: "localhost"
+        login_user: "slurm"
+        login_password: "slurm_password"
+        login_db: "slurm_acct_db"
+        query: >
+          DELETE FROM user_table WHERE name='{{ username }}';
+      when: username is defined
+      delegate_to: localhost

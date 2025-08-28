@@ -1,0 +1,16 @@
+- name: Submit existing SLURM job script
+  hosts: slurm_controller
+  become: yes
+  tasks:
+    - name: Ensure job script is executable
+      file:
+        path: /root/slurm_jobs/cpu_test.sh
+        mode: '0755'
+
+    - name: Submit the SLURM job
+      shell: sbatch /root/slurm_jobs/cpu_test.sh
+      register: job_output
+
+    - name: Show submitted job ID
+      debug:
+        var: job_output.stdout

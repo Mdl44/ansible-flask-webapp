@@ -1,0 +1,8 @@
+- name: Download and save weather to /root/weather.txt
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Fetch weather info and save to /root/weather.txt
+      shell: curl -s wttr.in > /root/weather.txt
+

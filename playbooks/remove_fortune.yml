@@ -1,0 +1,8 @@
+- name: Remove fortune-mod package
+  hosts: all
+  become: true
+  tasks:
+    - name: Remove fortune-mod
+      dnf:
+        name: fortune-mod
+        state: absent

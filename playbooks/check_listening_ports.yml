@@ -1,0 +1,11 @@
+- name: List listening ports (netstat)
+  hosts: all
+  become: true
+  tasks:
+    - name: Run netstat
+      command: netstat -tuln
+      register: ports
+
+    - name: Show open ports
+      debug:
+        var: ports.stdout_lines

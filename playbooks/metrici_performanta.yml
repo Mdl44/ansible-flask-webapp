@@ -1,0 +1,39 @@
+- name: Colectare metrici de performanță de pe toate nodurile!
+  hosts: all
+  become: true
+  gather_facts: no
+
+  tasks:
+    - name: Colectare uptime
+      command: uptime
+      register: uptime_out
+
+    - name: Colectare load average
+      command: cat /proc/loadavg
+      register: loadavg_out
+
+    - name: Colectare utilizare RAM
+      command: free -h
+      register: mem_out
+
+    
+    - name: Colectare spațiu pe disc
+      command: df -h
+      register: disk_out
+
+    - name: Scriere metrici în fișier local pe fiecare nod
+      copy:
+        content: |
+          === Uptime ===
+          {{ uptime_out.stdout }}
+
+          === Load Average ===
+          {{ loadavg_out.stdout }}
+
+          === RAM ===
+          {{ mem_out.stdout }}
+
+          === Disk ===
+          {{ disk_out.stdout }}
+        dest: /tmp/metrici.txt
+        mode: '0644'

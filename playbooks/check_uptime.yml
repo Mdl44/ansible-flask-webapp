@@ -1,0 +1,10 @@
+- name: Report system uptime
+  hosts: all
+  tasks:
+    - name: Run uptime
+      command: uptime
+      register: result
+
+    - name: Show uptime
+      debug:
+        var: result.stdout

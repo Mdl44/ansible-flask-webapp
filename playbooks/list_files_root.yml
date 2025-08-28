@@ -1,0 +1,11 @@
+- name: List files in /root modified in the last 24 hours
+  hosts: all
+  become: true
+  tasks:
+    - name: Find recently modified files in /root
+      command: find /root -type f -mtime -1
+      register: recent_root_files
+
+    - name: Display modified files
+      debug:
+        var: recent_root_files.stdout_lines

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible Web Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <div id="globalSpinner"
+        style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(24,26,32,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
+        <div style="text-align:center;">
+            <svg width="64" height="64" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#219ebc" stroke-width="6" stroke-linecap="round"
+                    stroke-dasharray="31.4 31.4" transform="rotate(-90 25 25)">
+                    <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s"
+                        repeatCount="indefinite" />
+                </circle>
+            </svg>
+            <div style="color:#219ebc;font-weight:bold;font-size:1.3em;margin-top:18px;">Processing, please wait...
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MAIN CONTAINER -->
+    <!-- ========================================================================= -->
+    <div class="container">
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <span><strong>Status:</strong> <span id="systemStatus">Ansible Available</span></span>
+            </div>
+            <div>
+                <span><strong>Connected Nodes:</strong> <span id="nodeCount">Loading...</span></span>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- NAVIGATION TABS -->
+        <!-- ========================================================================= -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('execute')" title="Execute Ansible Playbooks">
+                Execute Playbooks
+            </div>
+            <div class="tab" onclick="switchTab('create')" title="Create and Edit Playbooks">
+                Manage Playbooks
+            </div>
+            <div class="tab job-tab" onclick="switchTab('jobExecute')" title="Execute SLURM Jobs">
+                Execute Jobs
+            </div>
+            <div class="tab job-tab" onclick="switchTab('jobManage')" title="Manage SLURM Jobs">
+                Manage Jobs
+            </div>
+
+            <div class="tab" onclick="switchTab('group')" title="Manage Host Groups">
+                Manage Groups
+            </div>
+            <div class="tab" onclick="switchTab('host')" title="Manage Individual Hosts">
+                Manage Hosts
+            </div>
+
+            <div class="tab" onclick="switchTab('slurmReport')" title="SLURM Job Reports">
+                SLURM Reports
+            </div>
+
+            <div class="tab" id="dashboardTabBtn" onclick="switchTab('dashboard')" title="Admin Dashboard"
+                style="display:none;">
+                Dashboard
+            </div>
+
+            <div class="tab tab-user" title="User Profile" style="margin-left:auto;">
+                <svg class="user-icon" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="4" fill="#8ecae6" />
+                    <path d="M4 20c0-4 8-4 8-4s8 0 8 4v2H4v-2z" fill="#8ecae6" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- ANSIBLE PLAYBOOK EXECUTION TAB -->
+        <!-- ========================================================================= -->
+        <div id="executeTab" class="tab-content active">
+            <div class="controls-section">
+                <div class="control-group">
+                    <h3>Select Target Hosts</h3>
+                    <select id="targetHosts">
+                        <option value="">Loading hosts...</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <h3>Select Playbook</h3>
+                    <div class="playbook-selection">
+                        <select id="playbooks">
+                            <option value="">Loading playbooks...</option>
+                        </select>
+                        <div class="button-row" style="justify-content: flex-end; width: 100%;">
+                            <button id="editPlaybookBtn" class="warning">Edit Selected</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="executeBtn">Execute Playbook</button>
+                <button id="clearBtn" class="warning">Clear Output</button>
+                <button id="refreshBtn" class="success">Refresh Lists</button>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">
+                    <h3>Terminal Output</h3>
+                    <div class="output-status">
+                        <span id="executionStatus">Ready</span>
+                    </div>
+                </div>
+                <div class="output-content" id="outputContent">
+                    <div class="placeholder-text">
+                        Select hosts and playbook, then click Execute to see results...
+                        Or create a new playbook in the Create Playbook tab.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- PLAYBOOK MANAGEMENT TAB -->
+        <!-- ========================================================================= -->
+        <div id="createTab" class="tab-content">
+            <div class="action-buttons" style="margin-bottom: 24px;">
+                <button id="createNewPlaybookBtn" class="success">Create New Playbook</button>
+                <button id="manageExistingPlaybookBtn" class="warning">Manage Existing Playbook</button>
+            </div>
+
+            <div id="playbookCreatorSection" style="display:none;">
+                <div class="playbook-creator">
+                    <div class="creator-header">
+                        <h3 id="creatorTitle">Create New Playbook</h3>
+                        <div id="editMode" class="edit-indicator" style="display: none;">
+                            <span class="edit-badge">EDITING MODE</span>
+                        </div>
+                    </div>
+                    <div class="creator-content">
+                        <div class="form-row">
+                            <div>
+                                <label for="playbookName"><strong>Playbook Name:</strong></label>
+                                <input type="text" id="playbookName"
+                                    placeholder="Enter playbook name (without .yml extension)">
+                            </div>
+                            <div>
+                                <label for="playbookDescription"><strong>Description:</strong></label>
+                                <input type="text" id="playbookDescription"
+                                    placeholder="Brief description of the playbook">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label for="playbookContent"><strong>Playbook Content (YAML):</strong></label>
+                            <textarea id="playbookContent" rows="15"
+                                placeholder="Enter your playbook YAML content here...">{{ default_playbook }}</textarea>
+                        </div>
+                        <div class="action-buttons">
+                            <button id="savePlaybookBtn" class="success">Save Playbook</button>
+                            <button id="cancelEditBtn" class="warning" style="display: none;">Cancel Edit</button>
+                            <button id="deletePlaybookBtn" class="danger" style="display: none;">Delete
+                                Playbook</button>
+                            <button id="clearCreatorBtn" class="warning">Clear Form</button>
+                        </div>
+                        <div class="output-section">
+                            <div class="output-header">
+                                <h3>Playbook Output</h3>
+                                <div class="output-status">
+                                    <span id="playbookManageStatus">Ready</span>
+                                </div>
+                            </div>
+                            <div class="output-content" id="playbookManageOutput">
+                                <div class="placeholder-text">
+                                    Here you will see messages about playbook creation, editing or deletion.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="playbookDropdownSection" style="display:none;">
+                <label for="playbooksDropdown"><strong>Select Playbook to Edit:</strong></label>
+                <select id="playbooksDropdown"></select>
+                <div class="button-row">
+                    <button id="editSelectedPlaybookBtn" class="success">Edit Selected</button>
+                </div>
+            </div>
+        </div>
+        <!-- ========================================================================= -->
+        <!-- SLURM JOB EXECUTION TAB -->
+        <!-- ========================================================================= -->
+        <div id="jobExecuteTab" class="tab-content">
+            <div class="controls-section">
+                <div class="control-group">
+                    <h3>Select Target Hosts</h3>
+                    <select id="jobTargetHosts">
+                        <option value="">Loading hosts...</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <h3>Select Job</h3>
+                    <div class="job-selection">
+                        <select id="jobs">
+                            <option value="">Loading jobs...</option>
+                        </select>
+                        <div class="button-row">
+                            <button id="editJobBtn" class="warning">Edit Selected</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Select Application(s)</h3>
+                    <div id="applicationsList" class="app-list"></div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="executeJobBtn" class="success">Execute Job</button>
+                <button id="checkJobStatusBtn" class="info">Check Job Status</button>
+                <button id="clearJobOutputBtn" class="warning">Clear Output</button>
+                <button id="refreshJobsBtn" class="success">Refresh Jobs</button>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">
+                    <h3>Job Output</h3>
+                    <div class="output-status">
+                        <span id="jobExecutionStatus">Ready</span>
+                    </div>
+                </div>
+                <div class="output-content" id="jobOutputContent">
+                    <div class="placeholder-text">
+                        Select hosts and job, then click Execute to see results...
+                        Or create a new job in the Manage Jobs tab.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SLURM JOB MANAGEMENT TAB -->
+        <!-- ========================================================================= -->
+        <div id="jobManageTab" class="tab-content">
+            <div class="action-buttons" style="margin-bottom: 24px;">
+                <button id="createNewJobBtn" class="success">Create New Job</button>
+                <button id="manageExistingJobBtn" class="warning">Manage Existing Job</button>
+            </div>
+
+            <div id="jobCreatorSection" style="display:none;">
+                <div class="playbook-creator">
+                    <div class="creator-header">
+                        <h3 id="jobCreatorTitle">Create New Job</h3>
+                        <div id="jobEditMode" class="edit-indicator" style="display: none;">
+                            <span class="edit-badge">EDITING JOB</span>
+                        </div>
+                    </div>
+                    <div class="creator-content">
+                        <div class="form-row">
+                            <div>
+                                <label for="jobName"><strong>Job Name:</strong></label>
+                                <input type="text" id="jobName" placeholder="Enter job name (without extension)">
+                            </div>
+                            <div>
+                                <label for="jobDescription"><strong>Description:</strong></label>
+                                <input type="text" id="jobDescription" placeholder="Brief description of the job">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-group">
+                                <label for="jobContent"><strong>Job Content (Bash/SLURM script):</strong></label>
+                                <textarea id="jobContent" rows="15">{{ default_job }}</textarea>
+                            </div>
+                            <div class="action-buttons">
+                                <button id="saveJobBtn" class="success">Save Job</button>
+                                <button id="cancelJobEditBtn" class="warning" style="display: none;">Cancel
+                                    Edit</button>
+                                <button id="deleteJobBtn" class="danger" style="display: none;">Delete Job</button>
+                                <button id="clearJobFormBtn" class="warning">Clear Form</button>
+                            </div>
+                            <div class="output-section">
+                                <div class="output-header">
+                                    <h3>Job Output</h3>
+                                    <div class="output-status">
+                                        <span id="jobManageStatus">Ready</span>
+                                    </div>
+                                </div>
+                                <div class="output-content" id="jobManageOutput">
+                                    <div class="placeholder-text">
+                                        Here you will see messages about job creation, editing or deletion.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="jobDropdownSection" style="display:none;">
+                    <label for="jobsDropdown"><strong>Select Job to Edit:</strong></label>
+                    <select id="jobsDropdown"></select>
+                    <div class="button-row">
+                        <button id="editSelectedJobBtn" class="success">Edit Selected</button>
+                    </div>
+                </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- HOST GROUP MANAGEMENT TAB -->
+        <!-- ========================================================================= -->
+        <div id="groupTab" class="tab-content">
+            <div class="playbook-creator">
+                <div class="creator-header">
+                    <h3 id="groupCreatorTitle">Manage Groups</h3>
+                    <div id="groupEditMode" class="edit-indicator" style="display: none;">
+                        <span class="edit-badge">EDITING GROUP</span>
+                    </div>
+                </div>
+
+                <div class="creator-content">
+                    <div class="form-row">
+                        <div>
+                            <label for="groupSelect"><strong>Select Group:</strong></label>
+                            <select id="groupSelect">
+                                <option value="">-- New Group --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="groupName"><strong>Group Name:</strong></label>
+                            <input type="text" id="groupName" placeholder="Ex: mygroup">
+                        </div>
+                        <div>
+                            <label><strong>Select Hosts:</strong></label>
+                            <div id="groupHostsCheckboxes"></div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="saveGroupBtn" class="success">Save Group</button>
+                        <button id="editGroupBtn" class="warning" style="display:none;">Edit Selected</button>
+                        <button id="deleteGroupBtn" class="danger" style="display:none;">Delete Group</button>
+                        <button id="clearGroupFormBtn" class="warning">Clear Form</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- HOST MANAGEMENT TAB -->
+        <!-- ========================================================================= -->
+        <div id="hostTab" class="tab-content">
+            <div class="playbook-creator">
+                <div class="creator-header">
+                    <h3 id="hostCreatorTitle">Manage Hosts</h3>
+                    <div id="hostEditMode" class="edit-indicator" style="display: none;">
+                        <span class="edit-badge">EDITING HOST</span>
+                    </div>
+                </div>
+
+                <div class="creator-content">
+                    <div class="form-row">
+                        <div>
+                            <label for="hostSelect"><strong>Select Host:</strong></label>
+                            <select id="hostSelect">
+                                <option value="">-- New Host --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="hostName"><strong>Host Name:</strong></label>
+                            <input type="text" id="hostName" placeholder="Ex: controller">
+                        </div>
+                        <div>
+                            <label for="hostIP"><strong>IP Address:</strong></label>
+                            <input type="text" id="hostIP" placeholder="Ex: 192.168.1.10">
+                        </div>
+                        <div>
+                            <label for="hostUser"><strong>User:</strong></label>
+                            <input type="text" id="hostUser" placeholder="Ex: root">
+                        </div>
+                        <div>
+                            <label for="hostConnection"><strong>Connection:</strong></label>
+                            <input type="text" id="hostConnection" placeholder="Ex: ssh">
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="saveHostBtn" class="success">Save Host</button>
+                        <button id="editHostBtn" class="warning" style="display:none;">Edit Selected</button>
+                        <button id="deleteHostBtn" class="danger" style="display:none;">Delete Host</button>
+                        <button id="clearHostFormBtn" class="warning">Clear Form</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- USER AUTHENTICATION TABS -->
+        <!-- ========================================================================= -->
+
+        <div id="loginTab" class="tab-content">
+            <div class="login-form">
+                <h3>Login</h3>
+                <form id="loginForm">
+                    <label for="loginUsername">Username:</label>
+                    <input type="text" id="loginUsername" required>
+
+                    <label for="loginPassword">Password:</label>
+                    <input type="password" id="loginPassword" required>
+
+                    <button type="submit" class="success">Login</button>
+                </form>
+
+                <div id="loginResult"></div>
+
+                <div class="login-register-link">
+                    <span>You don't have an account?</span>
+                    <a href="#" onclick="switchTab('register');return false;">Register</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="registerTab" class="tab-content">
+            <div class="register-form">
+                <h3>Register</h3>
+                <form id="registerForm">
+                    <label for="regUsername">Username:</label>
+                    <input type="text" id="regUsername" required>
+
+                    <label for="regEmail">Email:</label>
+                    <input type="email" id="regEmail" required>
+
+                    <label for="regFullName">Full Name:</label>
+                    <input type="text" id="regFullName" required>
+
+                    <label for="regPassword">Password:</label>
+                    <input type="password" id="regPassword" required>
+
+                    <button type="submit" class="success">Register</button>
+                </form>
+
+                <div id="registerResult"></div>
+            </div>
+        </div>
+
+        <div id="profileTab" class="tab-content">
+            <div class="profile-form">
+                <h3>My Profile</h3>
+                <form id="profileForm">
+                    <label for="profileUsername">Username:</label>
+                    <input type="text" id="profileUsername" required>
+
+                    <label for="profileFullName">Full Name:</label>
+                    <input type="text" id="profileFullName" required>
+
+                    <label for="profileEmail">Email:</label>
+                    <input type="email" id="profileEmail" required>
+
+                    <label for="profilePassword">New Password:</label>
+                    <input type="password" id="profilePassword" placeholder="Leave blank to keep current">
+
+                    <button type="submit" class="success">Update Profile</button>
+                </form>
+
+                <div id="profileResult"></div>
+
+                <button id="logoutBtn" class="danger" style="margin-top:18px;width:100%;">
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <div id="slurmReportTab" class="tab-content">
+            <div class="playbook-creator">
+                <div class="creator-header">
+                    <h3>SLURM Job Reports</h3>
+                </div>
+                <div class="creator-content">
+                    <div class="form-row slurm-report-filters" style="margin-bottom:12px;">
+                        <div>
+                            <label for="slurmUserFilter"><strong>User:</strong></label>
+                            <input type="text" id="slurmUserFilter" placeholder="All users">
+                        </div>
+                        <div>
+                            <label for="slurmStateFilter"><strong>Status:</strong></label>
+                            <input type="text" id="slurmStateFilter" placeholder="All states">
+                        </div>
+                        <div>
+                            <label for="slurmStartFilter"><strong>Start (MM-DD-YYYY):</strong></label>
+                            <input type="date" id="slurmStartFilter">
+                        </div>
+                        <div>
+                            <label for="slurmEndFilter"><strong>End (MM-DD-YYYY):</strong></label>
+                            <input type="date" id="slurmEndFilter">
+                        </div>
+                    </div>
+                    <div class="button-row" style="margin-bottom: 18px;">
+                        <button id="slurmReportFilterBtn" class="success">Filter</button>
+                        <button id="slurmReportResetBtn" class="warning">Reset</button>
+                    </div>
+                    <div class="output-section">
+                        <div class="output-header">
+                            <h3>Job History</h3>
+                        </div>
+                        <div class="output-content" id="slurmReportOutput">
+                            <div class="placeholder-text">
+                                Here you will see SLURM job history and filters.
+                            </div>
+                        </div>
+                        <div id="slurmReportLegend" style="margin-top:18px; font-size:0.98em; color:#8ecae6;">
+                            <strong>Legend:</strong>
+                            <ul style="margin-top:6px;">
+                                <li>
+                                    <strong>Status codes (numeric):</strong>
+                                    <ul>
+                                        <li><span style="color:#23d18b;font-weight:bold;">0</span> – PENDING</li>
+                                        <li><span style="color:#219ebc;font-weight:bold;">1</span> – RUNNING</li>
+                                        <li><span style="color:#8ecae6;font-weight:bold;">2</span> – SUSPENDED</li>
+                                        <li><span style="color:#38b000;font-weight:bold;">3</span> – COMPLETED</li>
+                                        <li><span style="color:#ffb703;font-weight:bold;">4</span> – CANCELLED</li>
+                                        <li><span style="color:#d90429;font-weight:bold;">5</span> – FAILED</li>
+                                        <li><span style="color:#f48c06;font-weight:bold;">6</span> – TIMEOUT</li>
+                                        <li><span style="color:#b5179e;font-weight:bold;">7</span> – NODE_FAIL</li>
+                                        <li><span style="color:#adb5bd;font-weight:bold;">8</span> – PREEMPTED</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboardTab" class="tab-content">
+            <div class="playbook-creator">
+                <div class="creator-header">
+                    <h3>Admin Dashboard - User Management</h3>
+                </div>
+                <div class="creator-content">
+                    <div id="dashboardUsersSection">
+                        <div class="output-section">
+                            <div class="output-header">
+                                <h3>Users</h3>
+                                <div class="output-status">
+                                    <span id="dashboardStatus">Ready</span>
+                                </div>
+                            </div>
+                            <div class="output-content" id="dashboardUsersOutput">
+                                <div class="placeholder-text">
+                                    Here you will see the list of users and management actions.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="action-buttons">
+                            <button id="dashboardCreateUserBtn" class="success">Create User</button>
+                        </div>
+                    </div>
+                    <div id="dashboardUserFormSection" style="display:none;">
+                        <h4 id="dashboardUserFormTitle">Create/Edit User</h4>
+                        <form id="dashboardUserForm">
+                            <input type="hidden" id="dashboardUserId">
+                            <label for="dashboardUsername">Username:</label>
+                            <input type="text" id="dashboardUsername" required>
+                            <label for="dashboardEmail">Email:</label>
+                            <input type="email" id="dashboardEmail" required>
+                            <label for="dashboardFullName">Full Name:</label>
+                            <input type="text" id="dashboardFullName" required>
+                            <label for="dashboardPassword">Password:</label>
+                            <input type="password" id="dashboardPassword" placeholder="Leave blank to keep current">
+                            <label for="dashboardRole">Role:</label>
+                            <select id="dashboardRole">
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                            <label for="dashboardApplications"><strong>Applications:</strong></label>
+                            <div id="dashboardApplicationsList" class="app-list" style="margin-bottom: 20px;"></div>
+                            <div class="action-buttons">
+                                <button type="submit" class="success" id="dashboardSaveUserBtn">Save</button>
+                                <button type="button" class="warning" id="dashboardCancelUserBtn">Cancel</button>
+                            </div>
+                        </form>
+                        <div id="dashboardUserFormResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <script id="defaults" type="application/json">
+    {{ {'playbook': default_playbook, 'job': default_job} | tojson }}
+</script>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+
+</html>

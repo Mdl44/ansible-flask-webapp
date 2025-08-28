@@ -1,0 +1,11 @@
+name: SIESTA (Native)
+id: siesta_native
+type: binary
+description: SIESTA(native installation)
+executable: /mnt/nfsshare/opt/siesta/bin/siesta
+workdir: /mnt/nfsshare/fisiere-test/siesta-fisiere
+input:
+  extensions: [.fdf]
+  redirect: true
+output:
+  extension: .out

@@ -1,0 +1,8 @@
+- name: Install neofetch using dnf
+  hosts: all
+  become: true
+  tasks:
+    - name: Install neofetch
+      dnf:
+        name: neofetch
+        state: present

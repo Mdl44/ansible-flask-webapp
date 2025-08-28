@@ -1,0 +1,8 @@
+- name: Remove sysstat package
+  hosts: all
+  become: true
+  tasks:
+    - name: Remove sysstat
+      dnf:
+        name: sysstat
+        state: absent

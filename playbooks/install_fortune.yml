@@ -1,0 +1,16 @@
+- name: Install and display fortune
+  hosts: all
+  become: true
+  tasks:
+    - name: Install fortune
+      dnf:
+        name: fortune-mod
+        state: present
+
+    - name: Run fortune
+      command: fortune
+      register: fortune_output
+
+    - name: Show fortune
+      debug:
+        var: fortune_output.stdout_lines

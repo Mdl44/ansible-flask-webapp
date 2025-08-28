@@ -1,0 +1,7 @@
+---
+- name: List active systemd services
+  hosts: all
+  become: true
+  tasks:
+    - name: Save active services to /root/active_services.txt
+      shell: systemctl list-units --type=service --state=running > /root/active_services.txt

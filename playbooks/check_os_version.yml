@@ -1,0 +1,19 @@
+- name: Show OS version and kernel
+  hosts: all
+  tasks:
+    - name: Show OS release
+      command: cat /etc/os-release
+      register: os_release
+
+    - name: Show kernel version
+      command: uname -r
+      register: kernel
+
+    - name: Display version info
+      debug:
+        msg: |
+          OS Release:
+          {{ os_release.stdout }}
+
+          Kernel Version:
+          {{ kernel.stdout }}

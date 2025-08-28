@@ -1,0 +1,12 @@
+- name: List available security updates
+  hosts: all
+  become: true
+  tasks:
+    - name: Check for security updates
+      command: dnf updateinfo list security
+      register: security_updates
+      changed_when: false
+
+    - name: Show security updates
+      debug:
+        var: security_updates.stdout_lines

@@ -1,0 +1,53 @@
+- name: Install Pi-hole on controller node
+  hosts: slurm_controller
+  become: true
+
+  vars:
+    pihole_interface: enp17s0f0        
+    pihole_web_password: "uH2B7yZh"
+    pihole_dns_servers:
+      - "1.1.1.1"
+      - "8.8.8.8"
+
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - git
+          - curl
+          - net-tools
+        state: present
+
+    - name: Download Pi-hole install script
+      get_url:
+        url: https://install.pi-hole.net
+        dest: /tmp/pihole-install.sh
+        mode: '0755'
+
+    - name: Ensure /etc/pihole directory exists
+      file:
+        path: /etc/pihole
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Generate setupVars.conf with static config
+      copy:
+        dest: /etc/pihole/setupVars.conf
+        content: |
+          PIHOLE_INTERFACE={{ pihole_interface }}
+          IPV4_ADDRESS={{ ansible_host }}
+          QUERY_LOGGING=true
+          INSTALL_WEB_SERVER=true
+          INSTALL_WEB_INTERFACE=true
+          DNSMASQ_LISTENING=all
+          WEBPASSWORD={{ pihole_web_password }}
+          PIHOLE_DNS_1={{ pihole_dns_servers[0] }}
+          PIHOLE_DNS_2={{ pihole_dns_servers[1] }}
+
+    - name: Run Pi-hole installer in unattended mode
+      shell: bash /tmp/pihole-install.sh --unattended
+      args:
+        creates: /etc/pihole/pihole-FTL.conf
+

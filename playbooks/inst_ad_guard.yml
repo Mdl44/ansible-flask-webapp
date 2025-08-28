@@ -1,0 +1,58 @@
+---
+- name: Install AdGuard Home on all nodes
+  hosts: all
+  become: yes
+  vars:
+    adguard_version: latest
+    adguard_install_dir: /opt/adguardhome
+    adguard_download_url: https://static.adguard.com/adguardhome/release/AdGuardHome_linux_amd64.tar.gz
+
+  tasks:
+    - name: Install required packages
+      package:
+        name: curl
+        state: present
+
+    - name: Create installation directory
+      file:
+        path: "{{ adguard_install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download AdGuard Home archive
+      get_url:
+        url: "{{ adguard_download_url }}"
+        dest: /tmp/AdGuardHome.tar.gz
+        mode: '0644'
+
+    - name: Extract AdGuard Home
+      unarchive:
+        src: /tmp/AdGuardHome.tar.gz
+        dest: "{{ adguard_install_dir }}"
+        remote_src: yes
+        
+    - name: Make AdGuardHome binary executable
+      file:
+        path: "{{ adguard_install_dir }}/AdGuardHome/AdGuardHome"
+        mode: '0755'
+        state: file
+
+    - name: Install AdGuard Home (runs internal installer)
+      command: ./AdGuardHome -s install
+      args:
+        chdir: "{{ adguard_install_dir }}/AdGuardHome"
+
+    - name: Ensure AdGuard Home is started
+      systemd:
+        name: AdGuardHome
+        enabled: yes
+        state: started
+
+    - name: Open port 3000 in firewall (if firewalld is used)
+      firewalld:
+        port: 3000/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_facts['os_family'] == "RedHat"
+

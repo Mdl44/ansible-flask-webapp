@@ -1,0 +1,14 @@
+- name: Install sysstat monitoring tools
+  hosts: all
+  become: true
+  tasks:
+    - name: Install sysstat
+      dnf:
+        name: sysstat
+        state: present
+
+    - name: Enable sysstat service
+      service:
+        name: sysstat
+        state: started
+        enabled: true

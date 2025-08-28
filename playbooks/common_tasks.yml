@@ -1,0 +1,309 @@
+---
+# ===========================================
+# STEP 1: COMMON DEPENDENCIES (Enhanced)
+# ===========================================
+
+- name: Update all system packages
+  yum:
+    name: "*"
+    state: latest
+    update_cache: yes
+
+- name: Enable PowerTools/CRB repository (Rocky/AlmaLinux 9)
+  command: dnf config-manager --set-enabled crb
+  failed_when: false
+  changed_when: false
+
+- name: Enable PowerTools repository (CentOS 8)
+  command: dnf config-manager --set-enabled powertools
+  failed_when: false
+  changed_when: false
+
+- name: Install EPEL repository
+  yum:
+    name: epel-release
+    state: present
+
+- name: Install build and runtime dependencies
+  yum:
+    name:
+      # Build tools
+      - gcc
+      - gcc-c++
+      - make
+      - rpm-build
+      - rpm-devel
+      - libtool
+      - autoconf
+      - automake
+      - pkgconfig
+      
+      # SLURM dependencies
+      - python3-devel
+      - openssl-devel
+      - pam-devel
+      - numactl-devel
+      - hwloc-devel
+      - lua-devel
+      - readline-devel
+      - rrdtool-devel
+      - ncurses-devel
+      - gtk2-devel
+      - man2html
+      - libibumad
+      - libibmad
+      - perl-ExtUtils-MakeMaker
+      - hwloc
+      - lua
+      
+      # Additional utilities
+      - wget
+      - bzip2
+      - tar
+      - vim
+      - htop
+      - tree
+      
+      # MUNGE dependencies
+      - bzip2-devel
+      - zlib-devel
+    state: present
+    update_cache: yes
+
+- name: Create slurm system user
+  user:
+    name: "{{ slurm_user }}"
+    uid: 981
+    system: yes
+    shell: /bin/bash
+    home: /var/lib/slurm
+    create_home: yes
+    comment: "SLURM workload manager"
+    state: present
+
+- name: Create munge system user
+  user:
+    name: "{{ munge_user }}"
+    uid: 982
+    system: yes
+    shell: /sbin/nologin
+    home: /var/lib/munge
+    create_home: yes
+    comment: "MUNGE authentication service"
+    state: present
+
+- name: Create essential directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    # SLURM directories
+    - { path: "/etc/slurm", owner: "slurm", group: "slurm", mode: "0755" }
+    - { path: "/var/log/slurm", owner: "slurm", group: "slurm", mode: "0755" }
+    - { path: "/var/spool/slurm", owner: "slurm", group: "slurm", mode: "0755" }
+    - { path: "/var/spool/slurm/ctld", owner: "slurm", group: "slurm", mode: "0755" }
+    - { path: "/var/spool/slurm/d", owner: "slurm", group: "slurm", mode: "0755" }
+    - { path: "/var/lib/slurm", owner: "slurm", group: "slurm", mode: "0755" }
+    - { path: "/var/run/slurm", owner: "slurm", group: "slurm", mode: "0755" }
+    
+    # MUNGE directories
+    - { path: "/etc/munge", owner: "munge", group: "munge", mode: "0700" }
+    - { path: "/var/lib/munge", owner: "munge", group: "munge", mode: "0711" }
+    - { path: "/var/log/munge", owner: "munge", group: "munge", mode: "0700" }
+    - { path: "/var/run/munge", owner: "munge", group: "munge", mode: "0755" }
+
+# ===========================================
+# STEP 2: MUNGE INSTALLATION FROM EPEL (SIMPLIFIED)
+# ===========================================
+
+- name: Install MUNGE from EPEL repository
+  yum:
+    name: 
+      - munge
+      - munge-devel
+      - munge-libs
+    state: present
+    update_cache: yes
+
+- name: Create MUNGE symlink directories for different installation paths
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('munge') }}"
+    group: "{{ item.group | default('munge') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "/usr/local/var", owner: "root", group: "root" }
+    - { path: "/usr/local/var/lib", owner: "root", group: "root" }
+    - { path: "/usr/local/var/log", owner: "root", group: "root" }
+    - { path: "/usr/local/var/run", owner: "root", group: "root" }
+
+- name: Create MUNGE symlinks to fix path conflicts
+  file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    force: yes
+  loop:
+    - { src: "/var/lib/munge", dest: "/usr/local/var/lib/munge" }
+    - { src: "/var/log/munge", dest: "/usr/local/var/log/munge" }
+    - { src: "/var/run/munge", dest: "/usr/local/var/run/munge" }
+
+- name: Ensure MUNGE directories exist with correct permissions
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "/etc/munge", owner: "munge", group: "munge", mode: "0700" }
+    - { path: "/var/lib/munge", owner: "munge", group: "munge", mode: "0711" }
+    - { path: "/var/log/munge", owner: "munge", group: "munge", mode: "0700" }
+    - { path: "/var/run/munge", owner: "munge", group: "munge", mode: "0755" }
+
+- name: Generate MUNGE key using dd (universal method)
+  shell: dd if=/dev/urandom bs=1 count=1024 > /etc/munge/munge.key
+  args:
+    creates: /etc/munge/munge.key
+
+- name: Copy MUNGE key from controller to compute nodes (when running compute.yml)
+  shell: |
+    if ! [ -f /etc/munge/munge.key ]; then
+      scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      root@{{ groups['slurm_controller'][0] }}:/etc/munge/munge.key \
+      /etc/munge/munge.key
+    fi
+  when: inventory_hostname in groups['slurm_compute']
+  failed_when: false
+
+- name: Set MUNGE key permissions on all nodes
+  file:
+    path: /etc/munge/munge.key
+    owner: munge
+    group: munge
+    mode: '0400'
+
+# DEBUGGING TASKS
+- name: Check MUNGE key exists and permissions
+  stat:
+    path: /etc/munge/munge.key
+  register: munge_key_stat
+
+- name: Display MUNGE key info
+  debug:
+    msg: |
+      MUNGE key exists: {{ munge_key_stat.stat.exists }}
+      Owner: {{ munge_key_stat.stat.pw_name | default('unknown') }}
+      Group: {{ munge_key_stat.stat.gr_name | default('unknown') }}
+      Mode: {{ munge_key_stat.stat.mode | default('unknown') }}
+      Size: {{ munge_key_stat.stat.size | default('unknown') }} bytes
+
+- name: Try to start MUNGE service with error handling
+  systemd:
+    name: munge
+    state: started
+    enabled: yes
+  register: munge_start_result
+  failed_when: false
+
+- name: Check MUNGE service status if start failed
+  command: systemctl status munge.service
+  register: munge_status
+  when: munge_start_result.failed
+
+- name: Check MUNGE service logs if start failed  
+  command: journalctl -xeu munge.service --no-pager -n 50
+  register: munge_logs
+  when: munge_start_result.failed
+
+- name: Display MUNGE error details
+  debug:
+    msg: |
+      MUNGE Service Status:
+      {{ munge_status.stdout | default('No status available') }}
+      
+      MUNGE Logs:
+      {{ munge_logs.stdout | default('No logs available') }}
+  when: munge_start_result.failed
+
+- name: Fail if MUNGE couldn't start
+  fail:
+    msg: "MUNGE service failed to start. Check the debug output above."
+  when: munge_start_result.failed
+
+# ===========================================
+# STEP 3: SLURM INSTALLATION & CONFIGURATION
+# ===========================================
+
+- name: Download SLURM source code
+  get_url:
+    url: "https://download.schedmd.com/slurm/slurm-{{ slurm_version }}.tar.bz2"
+    dest: "/tmp/slurm-{{ slurm_version }}.tar.bz2"
+    mode: '0644'
+
+- name: Extract SLURM source
+  unarchive:
+    src: "/tmp/slurm-{{ slurm_version }}.tar.bz2"
+    dest: /tmp
+    remote_src: yes
+    creates: "/tmp/slurm-{{ slurm_version }}"
+
+- name: Configure SLURM build (WITHOUT cgroup support)
+  command: >
+    ./configure
+    --prefix=/usr/local
+    --sysconfdir=/etc/slurm
+    --with-systemdsystemunitdir=/etc/systemd/system
+    --enable-pam
+    --with-pam_dir=/lib64/security
+    --with-munge=/usr
+    --with-hwloc=/usr
+    --with-lua=/usr
+    --enable-shared
+    --disable-static
+    --with-rrdtool
+    --with-readline
+    --disable-cgroup
+    --without-cgroup
+  args:
+    chdir: "/tmp/slurm-{{ slurm_version }}"
+    creates: "/tmp/slurm-{{ slurm_version }}/config.log"
+
+- name: Compile SLURM
+  make:
+    chdir: "/tmp/slurm-{{ slurm_version }}"
+    jobs: "{{ ansible_processor_vcpus | default(2) }}"
+
+- name: Install SLURM
+  make:
+    chdir: "/tmp/slurm-{{ slurm_version }}"
+    target: install
+
+- name: Create SLURM library configuration
+  copy:
+    content: |
+      /usr/local/lib
+      /usr/local/lib64
+    dest: /etc/ld.so.conf.d/slurm.conf
+    mode: '0644'
+
+- name: Update library cache for SLURM
+  command: ldconfig
+
+- name: Install SLURM systemd services
+  copy:
+    src: "/tmp/slurm-{{ slurm_version }}/etc/{{ item }}.service"
+    dest: "/etc/systemd/system/{{ item }}.service"
+    remote_src: yes
+    mode: '0644'
+  loop:
+    - slurmctld
+    - slurmd
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes

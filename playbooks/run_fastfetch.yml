@@ -1,0 +1,49 @@
+- name: Run fastfetch and display system summary
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure fastfetch is installed (via package or manual build)
+      package:
+        name: fastfetch
+        state: present
+      ignore_errors: yes  # fallback if not available via package manager
+
+    - name: Fallback - install fastfetch from GitHub (if not in repo)
+      block:
+        - name: Install required build tools
+          package:
+            name:
+              - git
+              - cmake
+              - gcc
+              - make
+              - pkgconf
+              - wayland-devel
+            state: present
+
+        - name: Clone fastfetch repository
+          git:
+            repo: https://github.com/fastfetch-cli/fastfetch.git
+            dest: /opt/fastfetch
+            version: master
+
+        - name: Build fastfetch
+          shell: |
+            cd /opt/fastfetch
+            mkdir -p build
+            cd build
+            cmake ..
+            make -j$(nproc)
+            cp fastfetch /usr/local/bin/
+          args:
+            creates: /usr/local/bin/fastfetch
+      when: ansible_facts.packages['fastfetch'] is not defined
+
+    - name: Run fastfetch
+      command: fastfetch
+      register: fastfetch_output
+      changed_when: false
+
+    - name: Show fastfetch output
+      debug:
+        var: fastfetch_output.stdout_lines

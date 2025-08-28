@@ -622,7 +622,6 @@ def get_jobs():
     if not user:
         return jobs
     
-    # Check user's own jobs directory
     jobs_dir = f'/home/{user.username}/slurm_jobs'
     if os.path.exists(jobs_dir):
         for filename in os.listdir(jobs_dir):
@@ -1460,6 +1459,44 @@ def get_job_output(job_id):
         
     except Exception as e:
         return jsonify({'success': False, 'error': f'Failed to get job information: {str(e)}'})
+    
+@app.route('/api/slurm-queue')
+def slurm_queue():
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'success': False, 'error': 'Not logged in'})
+        
+        username = user.username
+        role = db.session.get(Role, user.role_id).name if user.role_id else 'user'
+        
+        if role == 'admin':
+            squeue_cmd = [
+                'squeue',
+                '-o', '%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R'
+            ]
+        else:
+            squeue_cmd = [
+                'squeue',
+                '-u', username,
+                '-o', '%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R'
+            ]
+        
+        result = subprocess.run(squeue_cmd, capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            return jsonify({
+                'success': False, 
+                'error': f'Failed to get queue data: {result.stderr}'
+            })
+        
+        return jsonify({
+            'success': True,
+            'output': result.stdout
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to get queue information: {str(e)}'})
 
 # =============================================================================
 # API ROUTES - USER AUTHENTICATION & MANAGEMENT

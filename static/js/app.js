@@ -156,6 +156,10 @@ function setupJobEventListeners() {
     document.getElementById('checkJobStatusBtn').addEventListener('click', function() {
         fetchJobOutput();
     });
+
+    document.getElementById('checkQueueBtn').addEventListener('click', function() {
+        fetchSlurmQueue();
+    });
 }
 
 function setupAuthEventListeners() {
@@ -1342,6 +1346,25 @@ function fetchJobOutput(jobId) {
         })
         .catch(error => {
             outputContent.innerHTML += `\nNetwork error fetching job information: ${error.message}\n`;
+        });
+}
+
+function fetchSlurmQueue() {
+    const outputContent = document.getElementById('jobOutputContent');
+    
+    outputContent.innerHTML += `\nFetching SLURM queue status...\n`;
+
+    fetch('/api/slurm-queue')
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                outputContent.innerHTML += `\n====== SQUEUE OUTPUT ======\n<pre>${result.output}</pre>\n====== END SQUEUE OUTPUT ======\n`;
+            } else {
+                outputContent.innerHTML += `\nError fetching queue information: ${result.error}\n`;
+            }
+        })
+        .catch(error => {
+            outputContent.innerHTML += `\nNetwork error fetching queue information: ${error.message}\n`;
         });
 }
 
